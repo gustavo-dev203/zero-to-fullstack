@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Minhas tarefas</h1>
+<div class="filters">
+  <form method="get">
+    <label>Prioridade:
+      <select name="priority">
+        <option value="">Todas</option>
+        <option value="baixa" {% if priority_filter == 'baixa' %}selected{% endif %}>Baixa</option>
+        <option value="media" {% if priority_filter == 'media' %}selected{% endif %}>Média</option>
+        <option value="alta" {% if priority_filter == 'alta' %}selected{% endif %}>Alta</option>
+      </select>
+    </label>
+    <label>Status:
+      <select name="status">
+        <option value="">Todos</option>
+        <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Pendente</option>
+        <option value="concluida" {% if status_filter == 'concluida' %}selected{% endif %}>Concluída</option>
+      </select>
+    </label>
+    <button type="submit">Filtrar</button>
+  </form>
+</div>
+
+{% if tasks %}
+<table class="task-table">
+  <thead>
+    <tr>
+      <th>Título</th>
+      <th>Prioridade</th>
+      <th>Data</th>
+      <th>Status</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for task in tasks %}
+    <tr>
+      <td>{{ task.title }}</td>
+      <td>{{ task.priority }}</td>
+      <td>{{ task.due_date or 'Sem data' }}</td>
+      <td>{{ task.status }}</td>
+      <td class="actions">
+        <a class="button small" href="{{ url_for('task_edit', task_id=task.id) }}">Editar</a>
+        <form method="post" action="{{ url_for('task_delete', task_id=task.id) }}" class="inline-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button class="button small danger" type="submit">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Você ainda não tem tarefas cadastradas. <a href="{{ url_for('task_create') }}">Adicione uma nova tarefa</a>.</p>
+{% endif %}
+{% endblock %}

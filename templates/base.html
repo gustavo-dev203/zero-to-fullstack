@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Task Manager</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="container header-bar">
+        <a class="brand" href="{{ url_for('index') }}">Task Manager</a>
+        <nav>
+          {% if session.user_id and user %}
+          <span>Bem-vindo, {{ user.email }}</span>
+          <a href="{{ url_for('task_create') }}">Nova Tarefa</a>
+          <form method="post" action="{{ url_for('logout') }}" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <button class="button small" type="submit">Sair</button>
+          </form>
+          {% else %}
+          <a href="{{ url_for('login') }}">Login</a>
+          <a href="{{ url_for('register') }}">Registrar</a>
+          {% endif %}
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <section class="messages">
+        {% for category, message in messages %}
+        <div class="message {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </section>
+      {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="container footer-bar">
+      <p>Projeto educacional em Flask e SQLite.</p>
+    </footer>
+  </body>
+</html>
