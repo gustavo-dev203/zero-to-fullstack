@@ -53,7 +53,7 @@ Um sistema CRUD completo e seguro para gerenciamento de tarefas, desenvolvido em
 ### 1. Clone ou baixe o projeto
 ```bash
 git clone https://github.com/gustavo-dev203/zero-to-fullstack.git
-cd task-manager
+cd zero-to-fullstack
 ```
 
 ### 2. Instale as dependências
