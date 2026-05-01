@@ -52,14 +52,18 @@ load_env_file()
 
 # Cria a aplicação Flask e aplica configurações básicas de sessão e ambiente.
 app = Flask(__name__, template_folder="templates", static_folder="static")
-# Chave secreta usada para sessions, cookies assinados e proteção CSRF.
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "default-change-me-in-production"
-if app.config["ENV"] == "production" and app.secret_key == "default-change-me-in-production":
-    raise ValueError("FLASK_SECRET_KEY deve estar definida em produção.")
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Configura ENV e DEBUG antes de usar na validação de chave secreta.
 app.config["ENV"] = os.environ.get("FLASK_ENV", "development").lower()
 app.config["DEBUG"] = app.config["ENV"] == "development" or os.environ.get("FLASK_DEBUG", "0") == "1"
+# Chave secreta usada para sessões, cookies assinados e proteção CSRF.
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not app.secret_key:
+    if app.config["ENV"] == "production":
+        raise ValueError("FLASK_SECRET_KEY deve estar definida em produção.")
+    app.secret_key = secrets.token_urlsafe(32)
+    print("[WARN] FLASK_SECRET_KEY não definido; usando chave temporária apenas para desenvolvimento.")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # O comportamento padrão de produção exige HTTPS explícito via FLASK_FORCE_HTTPS.
 # Isso evita que testes locais em modo production que usem HTTP falhem com cookies seguros.
@@ -94,12 +98,19 @@ talisman = Talisman(
 )
 
 # Caminho para o arquivo SQLite local.
-database_path = os.path.join(os.path.dirname(__file__), "app.db")
+DEFAULT_DATABASE_PATH = os.path.join(os.path.dirname(__file__), "app.db")
+app.config["DATABASE_PATH"] = os.environ.get("FLASK_DATABASE_PATH", DEFAULT_DATABASE_PATH)
 
 RATE_LIMIT_MAX = 18
 RATE_LIMIT_WINDOW_SECONDS = 300
 RATE_LIMIT_BLOCK_SECONDS = 900
 _rate_limit_store = {}
+
+
+def create_app(test_config=None):
+    if test_config:
+        app.config.update(test_config)
+    return app
 
 def enforce_login_rate_limit():
     ip = request.remote_addr or "unknown"
@@ -129,7 +140,7 @@ def enforce_login_rate_limit():
 @app.before_request
 def before_request():
     # Abre conexão com o banco antes de cada requisição.
-    g.db = get_db(database_path)
+    g.db = get_db(app.config["DATABASE_PATH"])
     # Limita tentativas de login por IP para reduzir ataques de força bruta.
     if request.endpoint == "login" and request.method == "POST":
         enforce_login_rate_limit()
@@ -167,7 +178,7 @@ def close_connection(exception):
 @app.cli.command("init-db")
 def init_db_command():
     # Comando CLI para inicializar o banco de dados local.
-    init_db(database_path)
+    init_db(app.config["DATABASE_PATH"])
     print("Banco de dados inicializado.")
 
 
@@ -372,6 +383,6 @@ def task_delete(task_id):
 
 if __name__ == "__main__":
     # Inicializa o banco local caso ainda não exista, e executa o servidor.
-    if not os.path.exists(database_path):
-        init_db(database_path)
+    if not os.path.exists(app.config["DATABASE_PATH"]):
+        init_db(app.config["DATABASE_PATH"])
     app.run(debug=app.config["DEBUG"], host="127.0.0.1", port=5500)

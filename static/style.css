@@ -518,6 +518,129 @@ h3 {
   font-weight: 700;
 }
 
+/* Responsive adjustments for smaller screens */
+@media (max-width: 900px) {
+  .container {
+    padding: 20px 0 32px;
+  }
+
+  .topbar-inner {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 14px 0;
+  }
+
+  .page-head,
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-head {
+    gap: 18px;
+  }
+
+  .panel-header {
+    gap: 16px;
+  }
+
+  .panel-header .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .task-card {
+    grid-template-columns: 1fr;
+  }
+
+  .task-card-head {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .task-card-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .task-card-actions .button,
+  .task-card-actions form {
+    width: 100%;
+  }
+
+  .task-card-actions form button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar-inner {
+    gap: 12px;
+  }
+
+  .brand {
+    font-size: 1.25rem;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .profile-pill {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .page-head {
+    gap: 16px;
+  }
+
+  .panel,
+  .card,
+  .auth-card,
+  .empty-state,
+  .form-card {
+    padding: 20px;
+  }
+
+  .button,
+  .filters input,
+  .filters select,
+  .form-card input,
+  .form-card select,
+  .form-card textarea {
+    width: 100%;
+  }
+
+  .form-card {
+    width: 100%;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .task-meta,
+  .task-due {
+    font-size: 0.92rem;
+  }
+
+  .task-card h3 {
+    font-size: 1.15rem;
+  }
+}
+
 .footer-bar {
   display: flex;
   justify-content: center;
