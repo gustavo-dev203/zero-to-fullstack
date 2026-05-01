@@ -1,10 +1,55 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Minhas tarefas</h1>
-<div class="filters">
-  <form method="get">
-    <label>Prioridade:
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Painel</p>
+    <h1>Minhas tarefas</h1>
+    <p class="subtitle">Organize seus prazos com clareza, prioridade e ações rápidas.</p>
+  </div>
+  <a class="button primary" href="{{ url_for('task_create') }}">Nova tarefa</a>
+</div>
+
+<div class="summary-grid">
+  {% set pendente = 0 %}
+  {% set concluida = 0 %}
+  {% for task in tasks %}
+    {% if task.status == 'pendente' %}
+      {% set pendente = pendente + 1 %}
+    {% elif task.status == 'concluida' %}
+      {% set concluida = concluida + 1 %}
+    {% endif %}
+  {% endfor %}
+
+  <article class="summary-card">
+    <span class="summary-label">Total de tarefas</span>
+    <strong>{{ tasks|length }}</strong>
+  </article>
+  <article class="summary-card">
+    <span class="summary-label">Pendentes</span>
+    <strong>{{ pendente }}</strong>
+  </article>
+  <article class="summary-card">
+    <span class="summary-label">Concluídas</span>
+    <strong>{{ concluida }}</strong>
+  </article>
+</div>
+
+<section class="panel card">
+  <div class="panel-header">
+    <div>
+      <h2>Filtros e pesquisa</h2>
+      <p class="panel-note">Use a busca para localizar tarefas pelo título ou ajuste os filtros para focar no que importa.</p>
+    </div>
+    <button class="button secondary" type="submit" form="filter-form">Aplicar</button>
+  </div>
+  <form id="filter-form" class="filters" method="get">
+    <label>
+      Buscar tarefa
+      <input type="search" name="query" placeholder="Pesquisar por título..." value="{{ search_query }}" />
+    </label>
+    <label>
+      Prioridade
       <select name="priority">
         <option value="">Todas</option>
         <option value="baixa" {% if priority_filter == 'baixa' %}selected{% endif %}>Baixa</option>
@@ -12,47 +57,48 @@
         <option value="alta" {% if priority_filter == 'alta' %}selected{% endif %}>Alta</option>
       </select>
     </label>
-    <label>Status:
+    <label>
+      Status
       <select name="status">
         <option value="">Todos</option>
         <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Pendente</option>
         <option value="concluida" {% if status_filter == 'concluida' %}selected{% endif %}>Concluída</option>
       </select>
     </label>
-    <button type="submit">Filtrar</button>
   </form>
-</div>
+</section>
 
 {% if tasks %}
-<table class="task-table">
-  <thead>
-    <tr>
-      <th>Título</th>
-      <th>Prioridade</th>
-      <th>Data</th>
-      <th>Status</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for task in tasks %}
-    <tr>
-      <td>{{ task.title }}</td>
-      <td>{{ task.priority }}</td>
-      <td>{{ task.due_date or 'Sem data' }}</td>
-      <td>{{ task.status }}</td>
-      <td class="actions">
-        <a class="button small" href="{{ url_for('task_edit', task_id=task.id) }}">Editar</a>
-        <form method="post" action="{{ url_for('task_delete', task_id=task.id) }}" class="inline-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-          <button class="button small danger" type="submit">Excluir</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<section class="task-list">
+  {% for task in tasks %}
+  <article class="task-card">
+    <div class="task-card-body">
+      <div class="task-card-head">
+        <div class="badge-row">
+          <span class="task-badge priority {{ task.priority }}">{{ task.priority|capitalize }}</span>
+          <span class="task-badge status {{ task.status }}">{{ task.status|capitalize }}</span>
+        </div>
+        <span class="task-due">{{ task.due_date or 'Sem data' }}</span>
+      </div>
+      <h3>{{ task.title }}</h3>
+      <p class="task-description">{{ task.description }}</p>
+      <div class="task-meta">Criada em {{ task.created_at[:10] }}</div>
+    </div>
+    <div class="task-card-actions">
+      <a class="button small" href="{{ url_for('task_edit', task_id=task.id) }}">Editar</a>
+      <form method="post" action="{{ url_for('task_delete', task_id=task.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <button class="button small danger" type="submit">Excluir</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</section>
 {% else %}
-<p>Você ainda não tem tarefas cadastradas. <a href="{{ url_for('task_create') }}">Adicione uma nova tarefa</a>.</p>
+<div class="empty-state card">
+  <h2>Sem tarefas por enquanto</h2>
+  <p>Adicione uma tarefa para começar a organizar sua agenda e acompanhar o progresso.</p>
+  <a class="button primary" href="{{ url_for('task_create') }}">Adicionar tarefa</a>
+</div>
 {% endif %}
 {% endblock %}

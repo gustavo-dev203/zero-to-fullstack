@@ -1,23 +1,37 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Registrar</h1>
-<form class="card form-card" method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-  <label>Email</label>
-  <input type="email" name="email" required />
-
-  <label>Senha</label>
-  <input type="password" name="password" required minlength="6" />
-
-  <label>Confirmar senha</label>
-  <input type="password" name="password_confirm" required minlength="6" />
-
-  <button class="button" type="submit">Criar conta</button>
-</form>
-<div class="small-note">
-  <p>Já tem conta? <a href="{{ url_for('login') }}">Faça login</a>.</p>
-</div>
-
+<section class="auth-page">
+  <div class="auth-card card">
+    <div class="auth-header">
+      <p class="eyebrow">Comece agora</p>
+      <h1>Registrar</h1>
+      <p class="subtitle">Crie sua conta e administre tarefas com um painel claro e eficiente.</p>
+    </div>
+    <form class="form-card" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <div class="field-row">
+        <label>Nome completo</label>
+        <input type="text" name="name" required minlength="2" />
+      </div>
+      <div class="field-row">
+        <label>Email</label>
+        <input type="email" name="email" required />
+      </div>
+      <div class="field-row">
+        <label>Senha</label>
+        <input type="password" name="password" required minlength="6" />
+      </div>
+      <div class="field-row">
+        <label>Confirmar senha</label>
+        <input type="password" name="password_confirm" required minlength="6" />
+      </div>
+      <button class="button primary" type="submit">Criar conta</button>
+    </form>
+    <div class="small-note">
+      <p>Já tem conta? <a href="{{ url_for('login') }}">Faça login</a>.</p>
+    </div>
+  </div>
+</section>
 {% endblock %}
 

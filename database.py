@@ -23,12 +23,18 @@ def init_db(db_path: str) -> None:
         """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
             email TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
         )
         """
     )
+
+    cursor.execute("PRAGMA table_info(users)")
+    user_columns = [row[1] for row in cursor.fetchall()]
+    if "name" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN name TEXT")
 
     cursor.execute(
         """

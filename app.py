@@ -2,7 +2,7 @@
 # Este arquivo configura o app, a segurança e define as rotas da aplicação.
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from flask import (
     Flask,
     g,
@@ -15,6 +15,19 @@ from flask import (
     abort,
 )
 from flask_talisman import Talisman
+from auth import (
+    authenticate_user,
+    get_current_user,
+    get_login_block_message,
+    is_login_allowed,
+    login_required,
+    login_user,
+    logout_user,
+    register_user,
+    validate_email,
+)
+from database import get_db, init_db
+from models import Task, validate_task_data, validate_task_status
 
 
 def load_env_file(path: str = ".env") -> None:
@@ -37,36 +50,30 @@ def load_env_file(path: str = ".env") -> None:
 
 load_env_file()
 
-from auth import (
-    authenticate_user,
-    get_current_user,
-    get_login_block_message,
-    is_login_allowed,
-    login_required,
-    login_user,
-    logout_user,
-    register_user,
-    validate_email,
-)
-from database import get_db, init_db
-from models import Task, validate_task_data, validate_task_status
-
 # Cria a aplicação Flask e aplica configurações básicas de sessão e ambiente.
 app = Flask(__name__, template_folder="templates", static_folder="static")
 # Chave secreta usada para sessions, cookies assinados e proteção CSRF.
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "troque-esta-chave-secreta")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "default-change-me-in-production"
+if app.config["ENV"] == "production" and app.secret_key == "default-change-me-in-production":
+    raise ValueError("FLASK_SECRET_KEY deve estar definida em produção.")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["ENV"] = os.environ.get("FLASK_ENV", "development").lower()
 app.config["DEBUG"] = app.config["ENV"] == "development" or os.environ.get("FLASK_DEBUG", "0") == "1"
-# Em desenvolvimento, cookies podem ser enviados via HTTP; em produção, force cookies seguros.
-app.config["SESSION_COOKIE_SECURE"] = not app.config["DEBUG"]
+
+# O comportamento padrão de produção exige HTTPS explícito via FLASK_FORCE_HTTPS.
+# Isso evita que testes locais em modo production que usem HTTP falhem com cookies seguros.
+force_https = os.environ.get("FLASK_FORCE_HTTPS", "0").lower() in ("1", "true", "yes")
+if app.config["ENV"] == "production" and not app.config["DEBUG"] and not force_https:
+    print("[WARN] Modo production detectado, mas HTTPS não está ativado. Defina FLASK_FORCE_HTTPS=1 em produção real.")
+
+app.config["SESSION_COOKIE_SECURE"] = force_https
 # Define o esquema de URL preferido como HTTP para uso local.
 app.config["PREFERRED_URL_SCHEME"] = "http"
 
 # Configuração de segurança HTTP usando Flask-Talisman.
 # Em ambiente de desenvolvimento, não redirecionamos para HTTPS automaticamente.
-force_https = app.config["ENV"] == "production" and not app.config["DEBUG"]
+force_https = force_https
 
 if app.config["DEBUG"]:
     print("[INFO] Rodando em modo de desenvolvimento. HTTPS não será forçado.")
@@ -89,11 +96,44 @@ talisman = Talisman(
 # Caminho para o arquivo SQLite local.
 database_path = os.path.join(os.path.dirname(__file__), "app.db")
 
+RATE_LIMIT_MAX = 18
+RATE_LIMIT_WINDOW_SECONDS = 300
+RATE_LIMIT_BLOCK_SECONDS = 900
+_rate_limit_store = {}
+
+def enforce_login_rate_limit():
+    ip = request.remote_addr or "unknown"
+    now = datetime.now(timezone.utc)
+    state = _rate_limit_store.get(ip, {
+        "count": 0,
+        "first_request": now,
+        "blocked_until": None,
+    })
+
+    if state["blocked_until"] and now < state["blocked_until"]:
+        abort(429, "Muitas solicitações de login. Tente novamente em alguns minutos.")
+
+    if (now - state["first_request"]).total_seconds() > RATE_LIMIT_WINDOW_SECONDS:
+        state = {"count": 0, "first_request": now, "blocked_until": None}
+
+    state["count"] += 1
+
+    if state["count"] > RATE_LIMIT_MAX:
+        state["blocked_until"] = now + timedelta(seconds=RATE_LIMIT_BLOCK_SECONDS)
+        _rate_limit_store[ip] = state
+        abort(429, "Muitas solicitações de login. Tente novamente em alguns minutos.")
+
+    _rate_limit_store[ip] = state
+
 
 @app.before_request
 def before_request():
     # Abre conexão com o banco antes de cada requisição.
     g.db = get_db(database_path)
+    # Limita tentativas de login por IP para reduzir ataques de força bruta.
+    if request.endpoint == "login" and request.method == "POST":
+        enforce_login_rate_limit()
+
     # Garante que exista um token CSRF para formulários.
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(24)
@@ -141,28 +181,34 @@ def index():
         flash("Sessão inválida. Faça login novamente.", "warning")
         return redirect(url_for("login"))
 
+    search_query = request.args.get("query", "").strip()
     priority_filter = request.args.get("priority")
     status_filter = request.args.get("status")
 
-    query = "SELECT * FROM tasks WHERE user_id = ?"
+    sql = "SELECT * FROM tasks WHERE user_id = ?"
     params = [user["id"]]
 
+    if search_query:
+        sql += " AND title LIKE ?"
+        params.append(f"%{search_query}%")
+
     if priority_filter in ("baixa", "media", "alta"):
-        query += " AND priority = ?"
+        sql += " AND priority = ?"
         params.append(priority_filter)
 
     if status_filter in ("pendente", "concluida"):
-        query += " AND status = ?"
+        sql += " AND status = ?"
         params.append(status_filter)
 
-    query += " ORDER BY due_date IS NULL, due_date ASC, created_at DESC"
-    rows = g.db.execute(query, params).fetchall()
+    sql += " ORDER BY due_date IS NULL, due_date ASC, created_at DESC"
+    rows = g.db.execute(sql, params).fetchall()
     tasks = [Task.from_row(row).to_dict() for row in rows]
 
     return render_template(
         "index.html",
         user=user,
         tasks=tasks,
+        search_query=search_query,
         priority_filter=priority_filter,
         status_filter=status_filter,
     )
@@ -172,17 +218,18 @@ def index():
 def register():
     # Página de registro de usuário.
     if request.method == "POST":
+        name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
         password_confirm = request.form.get("password_confirm", "")
 
-        if not email or not password:
-            flash("Email e senha são obrigatórios.", "danger")
+        if not name or not email or not password:
+            flash("Nome, email e senha são obrigatórios.", "danger")
         elif not validate_email(email):
             flash("Email inválido ou domínio não existe.", "danger")
         elif password != password_confirm:
             flash("As senhas não coincidem.", "danger")
-        elif register_user(g.db, email, password):
+        elif register_user(g.db, name, email, password):
             flash("Conta criada com sucesso. Faça login.", "success")
             return redirect(url_for("login"))
         else:
@@ -237,16 +284,20 @@ def task_create():
 
         if due_date:
             try:
-                datetime.strptime(due_date, "%Y-%m-%d")
+                due_date_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
             except ValueError:
                 flash("Data de conclusão inválida.", "danger")
+                return render_template("task_form.html", form_action=url_for("task_create"), task=None)
+
+            if due_date_obj < datetime.utcnow().date():
+                flash("Não é possível criar uma tarefa com data de conclusão no passado.", "danger")
                 return render_template("task_form.html", form_action=url_for("task_create"), task=None)
 
         if not validate_task_data(title, description, priority):
             flash("Dados da tarefa inválidos. Verifique os campos e tente novamente.", "danger")
             return render_template("task_form.html", form_action=url_for("task_create"), task=None)
 
-        created_at = datetime.utcnow().isoformat()
+        created_at = datetime.now(timezone.utc).isoformat()
         user = get_current_user()
 
         g.db.execute(
@@ -284,9 +335,13 @@ def task_edit(task_id):
 
         if due_date:
             try:
-                datetime.strptime(due_date, "%Y-%m-%d")
+                due_date_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
             except ValueError:
                 flash("Data de conclusão inválida.", "danger")
+                return render_template("task_form.html", form_action=url_for("task_edit", task_id=task_id), task=task)
+
+            if due_date_obj < datetime.utcnow().date():
+                flash("Não é possível definir uma data de conclusão no passado.", "danger")
                 return render_template("task_form.html", form_action=url_for("task_edit", task_id=task_id), task=task)
 
         if not validate_task_data(title, description, priority) or not validate_task_status(status):

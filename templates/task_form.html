@@ -1,33 +1,48 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>{{ 'Editar tarefa' if task else 'Nova tarefa' }}</h1>
-<form class="card form-card" method="post" action="{{ form_action }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-  <label>Título</label>
-  <input type="text" name="title" required minlength="3" value="{{ task.title if task else '' }}" />
+<section class="task-form-page">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">{{ 'Editar' if task else 'Nova' }} tarefa</p>
+      <h1>{{ 'Editar tarefa' if task else 'Criar nova tarefa' }}</h1>
+      <p class="subtitle">Preencha os dados da tarefa para manter sua agenda clara e organizada.</p>
+    </div>
+  </div>
 
-  <label>Descrição</label>
-  <textarea name="description" required minlength="5">{{ task.description if task else '' }}</textarea>
+  <form class="card form-card" method="post" action="{{ form_action }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <label>Título</label>
+    <input type="text" name="title" required minlength="3" value="{{ task.title if task else '' }}" />
 
-  <label>Prioridade</label>
-  <select name="priority">
-    <option value="baixa" {% if task and task.priority == 'baixa' %}selected{% endif %}>Baixa</option>
-    <option value="media" {% if task and task.priority == 'media' %}selected{% endif %}>Média</option>
-    <option value="alta" {% if task and task.priority == 'alta' %}selected{% endif %}>Alta</option>
-  </select>
+    <label>Descrição</label>
+    <textarea name="description" required minlength="5">{{ task.description if task else '' }}</textarea>
 
-  <label>Data de conclusão</label>
-  <input type="date" name="due_date" value="{{ task.due_date if task and task.due_date else '' }}" />
+    <div class="grid-2">
+      <label>
+        Prioridade
+        <select name="priority">
+          <option value="baixa" {% if task and task.priority == 'baixa' %}selected{% endif %}>Baixa</option>
+          <option value="media" {% if task and task.priority == 'media' %}selected{% endif %}>Média</option>
+          <option value="alta" {% if task and task.priority == 'alta' %}selected{% endif %}>Alta</option>
+        </select>
+      </label>
 
-  {% if task %}
-  <label>Status</label>
-  <select name="status">
-    <option value="pendente" {% if task.status == 'pendente' %}selected{% endif %}>Pendente</option>
-    <option value="concluida" {% if task.status == 'concluida' %}selected{% endif %}>Concluída</option>
-  </select>
-  {% endif %}
+      <label>
+        Data de conclusão
+        <input type="date" name="due_date" value="{{ task.due_date if task and task.due_date else '' }}" />
+      </label>
+    </div>
 
-  <button class="button" type="submit">Salvar</button>
-</form>
+    {% if task %}
+    <label>Status</label>
+    <select name="status">
+      <option value="pendente" {% if task.status == 'pendente' %}selected{% endif %}>Pendente</option>
+      <option value="concluida" {% if task.status == 'concluida' %}selected{% endif %}>Concluída</option>
+    </select>
+    {% endif %}
+
+    <button class="button primary" type="submit">Salvar</button>
+  </form>
+</section>
 {% endblock %}

@@ -7,26 +7,38 @@
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <header>
-      <div class="container header-bar">
-        <a class="brand" href="{{ url_for('index') }}">Task Manager</a>
-        <nav>
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <a class="brand" href="{{ url_for('index') }}">Agenda de Tarefas</a>
+        <div class="topbar-actions">
           {% if session.user_id and user %}
-          <span>Bem-vindo, {{ user.email }}</span>
-          <a href="{{ url_for('task_create') }}">Nova Tarefa</a>
-          <form method="post" action="{{ url_for('logout') }}" class="inline-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-            <button class="button small" type="submit">Sair</button>
-          </form>
+          <a class="button primary compact" href="{{ url_for('task_create') }}">Nova tarefa</a>
+          <details class="profile-menu">
+            <summary class="profile-pill">
+              <span class="avatar">{{ user.name[0]|upper }}</span>
+              <span>{{ user.name }}</span>
+            </summary>
+            <div class="profile-dropdown">
+              <p class="profile-title">Perfil</p>
+              <p class="profile-label">Nome</p>
+              <p class="profile-value">{{ user.name }}</p>
+              <p class="profile-label">Email</p>
+              <p class="profile-value">{{ user.email }}</p>
+              <form method="post" action="{{ url_for('logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                <button class="button secondary profile-logout" type="submit">Sair</button>
+              </form>
+            </div>
+          </details>
           {% else %}
-          <a href="{{ url_for('login') }}">Login</a>
-          <a href="{{ url_for('register') }}">Registrar</a>
+          <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+          <a class="nav-link" href="{{ url_for('register') }}">Registrar</a>
           {% endif %}
-        </nav>
+        </div>
       </div>
     </header>
 
-    <main class="container">
+    <main class="container page-main">
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
       <section class="messages">
@@ -41,7 +53,7 @@
     </main>
 
     <footer class="container footer-bar">
-      <p>Projeto educacional em Flask e SQLite.</p>
+      <p>Agenda de tarefas com foco em usabilidade, clareza e produtividade.</p>
     </footer>
   </body>
 </html>

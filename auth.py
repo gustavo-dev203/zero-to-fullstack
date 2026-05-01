@@ -4,7 +4,7 @@ import re
 import socket
 import sqlite3
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import session, redirect, url_for, flash, g
 
@@ -34,6 +34,13 @@ def has_valid_email_domain(domain: str) -> bool:
         return True
     except socket.gaierror:
         return False
+
+
+def validate_name(name: str) -> bool:
+    # Verifica se o nome é válido e possui um tamanho razoável.
+    if not name or len(name.strip()) < 2 or len(name.strip()) > 100:
+        return False
+    return True
 
 
 def validate_email(email: str) -> bool:
@@ -66,7 +73,7 @@ def is_login_allowed(db, email: str) -> bool:
         return True
 
     last_attempt = datetime.fromisoformat(row["last_attempt"])
-    return datetime.utcnow() - last_attempt >= timedelta(minutes=LOCKOUT_MINUTES)
+    return datetime.now(timezone.utc) - last_attempt >= timedelta(minutes=LOCKOUT_MINUTES)
 
 
 def get_login_block_message(db, email: str) -> str | None:
@@ -76,7 +83,7 @@ def get_login_block_message(db, email: str) -> str | None:
         return None
 
     last_attempt = datetime.fromisoformat(row["last_attempt"])
-    delta = datetime.utcnow() - last_attempt
+    delta = datetime.now(timezone.utc) - last_attempt
     if delta >= timedelta(minutes=LOCKOUT_MINUTES):
         return None
 
@@ -94,7 +101,7 @@ def record_login_attempt(db, email: str, success: bool) -> None:
             db.commit()
         return
 
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     if row is None:
         db.execute(
             "INSERT INTO login_attempts (email, attempts, last_attempt) VALUES (?, ?, ?)",
@@ -109,19 +116,20 @@ def record_login_attempt(db, email: str, success: bool) -> None:
     db.commit()
 
 
-def register_user(db, email: str, password: str) -> bool:
+def register_user(db, name: str, email: str, password: str) -> bool:
     # Cadastra um novo usuário no banco, retornando True se bem-sucedido.
+    name = name.strip()
     email = email.strip().lower()
-    if not email or not password or len(password) < 6 or not validate_email(email):
+    if not validate_name(name) or not email or not password or len(password) < 6 or not validate_email(email):
         return False
 
     password_hash = hash_password(password)
-    created_at = datetime.utcnow().isoformat()
+    created_at = datetime.now(timezone.utc).isoformat()
 
     try:
         db.execute(
-            "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
-            (email, password_hash, created_at),
+            "INSERT INTO users (name, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+            (name, email, password_hash, created_at),
         )
         db.commit()
         return True
@@ -138,7 +146,7 @@ def authenticate_user(db, email: str, password: str):
         return None
 
     row = db.execute(
-        "SELECT id, email, password_hash FROM users WHERE email = ?",
+        "SELECT id, name, email, password_hash FROM users WHERE email = ?",
         (email,),
     ).fetchone()
 
@@ -152,7 +160,8 @@ def authenticate_user(db, email: str, password: str):
 
     if check_password(password, password_hash):
         record_login_attempt(db, email, True)
-        return {"id": row["id"], "email": row["email"]}
+        name_value = row["name"] or row["email"].split("@", 1)[0]
+        return {"id": row["id"], "name": name_value, "email": row["email"]}
 
     record_login_attempt(db, email, False)
     return None
@@ -197,7 +206,11 @@ def get_current_user():
     if db is None:
         return None
 
-    row = db.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
+    row = db.execute("SELECT id, name, email FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         return None
-    return {"id": row["id"], "email": row["email"]}
+    return {
+        "id": row["id"],
+        "name": row["name"] or row["email"].split("@", 1)[0],
+        "email": row["email"],
+    }
