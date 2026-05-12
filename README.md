@@ -150,10 +150,3 @@ server {
 }
 ```
 
-## ✅ Mudanças recentes refletidas no README
-
-- Inclusão da suíte de testes e instruções de execução
-- Documentação do `FLASK_DATABASE_PATH`
-- Descrição da geração de chave temporária em desenvolvimento
-- Atualização da arquitetura e dos arquivos do projeto
-- Registro das melhorias de segurança e responsividade
